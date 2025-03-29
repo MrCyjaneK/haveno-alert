@@ -1,0 +1,21 @@
+{
+  "name": "haveno-alert",
+  "version": "1.0.0",
+  "description": "Haveno offers alert system",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "haveno",
+    "trading",
+    "cryptocurrency"
+  ],
+  "author": "",
+  "license": "AGPL-3.0-only",
+  "dependencies": {
+    "haveno-ts": "^0.0.33"
+  }
+}

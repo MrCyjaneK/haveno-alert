@@ -1,0 +1,25 @@
+{
+    "name": "Haveno Development",
+    "build": {
+        "dockerfile": "../Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "ms-vscode.vscode-typescript-next",
+                "christian-kohler.npm-intellisense",
+                "christian-kohler.path-intellisense"
+            ],
+            "settings": {
+                "editor.formatOnSave": true,
+                "editor.defaultFormatter": "esbenp.prettier-vscode",
+                "javascript.updateImportsOnFileMove.enabled": "always",
+                "typescript.updateImportsOnFileMove.enabled": "always"
+            }
+        }
+    },
+    "forwardPorts": [],
+    "remoteUser": "vscode",
+    "postCreateCommand": "npm install"
+}
