@@ -95,13 +95,15 @@ myCommands.command(
   async (ctx) => {
     const arr = ctx.match.split(/\s+/);
     if (arr.length == 1 && arr[0] == "") {
-      await ctx.reply("Invalid command. Use /watch {baseCurrency} {counterCurrency} {paymentMethod?} {price?} {amount?} {minAmount?} {volume?} {minVolume?}");
+      await ctx.reply(
+        "Invalid command. Use /watch {baseCurrency} {counterCurrency} {paymentMethod?} {price?} {amount?} {minAmount?} {volume?} {minVolume?}",
+      );
       return;
     }
 
     const groups = {
-      baseCurrency: arr[0].toUpperCase(),
-      counterCurrency: arr[1].toUpperCase(),
+      baseCurrency: arr[0]?.toUpperCase(),
+      counterCurrency: arr[1]?.toUpperCase(),
       paymentMethod: arr[2],
       price: arr[3],
       amount: arr[4],
@@ -125,15 +127,15 @@ myCommands.command(
         );
         return;
       }
-    } else if (!isCrypto(counterCurrency)) {
+    } else if (!await isCrypto(counterCurrency)) {
       await ctx.reply("You have to specify valid Counter Currency.");
       return;
     }
 
     let paymentMethod = groups?.paymentMethod ?? "";
-    if (paymentMethod != "") {
+    if (paymentMethod !== "-" && paymentMethod !== "") {
       const possibleValues = PAYMENT_METHODS.filter((sv) => {
-        const ucase = paymentMethod?.toUpperCase();
+        const ucase = paymentMethod.toUpperCase();
         return ucase && sv.includes(ucase);
       });
 
@@ -212,12 +214,31 @@ void bot.start();
 // #endregion
 
 // #region Watching logic
+const watchKeyvSqlite = new KeyvSqlite(process.env.WATCH_DB_PATH);
+const watchKeyv = new Keyv<string[]>({ store: watchKeyvSqlite });
 const REFRESH_INTERVAL = 1000 * 30; // fetch new offers every 30s
-const knownOfferInfos = new Map<string, Set<string>>();
+let knownOfferInfos: Map<string, Set<string>> | undefined;
 
 async function watchOffers() {
   if (!keyv?.iterator) {
+    console.error("MISSING KEYV ITERATOR");
     return;
+  }
+
+  if (!watchKeyv?.iterator) {
+    console.error("MISSING WATCH KEYV ITERATOR");
+    return;
+  }
+
+  if (!knownOfferInfos) {
+    console.log("Loading knownOfferInfos");
+
+    knownOfferInfos = new Map<string, Set<string>>();
+    const iterator: AsyncGenerator<[string, string[]]> = watchKeyv.iterator(0);
+    for await (const [id, ids] of iterator) {
+      console.log(id, ids);
+      knownOfferInfos.set(id, new Set(ids));
+    }
   }
 
   console.log("Watching offers");
@@ -238,9 +259,19 @@ async function watchOffers() {
   console.log("Asset codes:", assetCodes.size);
   console.log("Watched offers:", watchedOffers.length);
 
-  for (const asset of assetCodes) {
+  asset: for (const asset of assetCodes) {
     console.log("Get offers for", asset);
-    const offers = await haveno.getOffers(asset, "any" as any);
+    let offers: OfferInfo[];
+    try {
+      offers = await haveno.getOffers(asset, "any" as any);
+    } catch (error) {
+      console.log(`Haveno errored on getOffer('${asset}', 'any'):`, error);
+      console.log(
+        "Skipping current asset, sleeping for 10s and trying the next one...",
+      );
+      await sleep(1000 * 10);
+      continue asset;
+    }
 
     console.log(`Got ${offers.length} offers...`);
     for (const offer of offers) {
@@ -256,6 +287,7 @@ async function watchOffers() {
             const known = new Set<string>();
             known.add(offer.getId());
             knownOfferInfos.set(watchedOffer.id, known);
+            await watchKeyv.set(watchedOffer.id, Array.from(known));
           }
 
           const current = foundOffers.get(watchedOffer);
@@ -269,10 +301,25 @@ async function watchOffers() {
     }
 
     for (const [watchedOffer, offers] of foundOffers.entries()) {
+      const messages = [];
+      let message =
+        `<a href='tg://user?id=${watchedOffer.userId}'>Hey</a>, I have found ${offers.length} offers matching your filters!`;
+
       for (const offer of offers) {
-        await bot.api.sendMessage(watchedOffer.channelId, formatOfferInfo(offer), {
+        if (message.length > 3072) {
+          messages.push(message);
+          message = "";
+        }
+
+        message += "\n" + formatOfferInfo(offer);
+      }
+      messages.push(message);
+
+      for (const message of messages) {
+        await bot.api.sendMessage(watchedOffer.channelId, message, {
           parse_mode: "HTML",
         });
+        await sleep(1000);
       }
     }
     foundOffers.clear();
