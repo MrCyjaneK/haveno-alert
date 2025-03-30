@@ -19,7 +19,7 @@ RUN wget -O- https://apt.envoyproxy.io/signing.key | gpg --dearmor -o /etc/apt/k
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/envoy-keyring.gpg] https://apt.envoyproxy.io bookworm main" | tee /etc/apt/sources.list.d/envoy.list && \
     apt update && apt install -y envoy && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+RUN curl -fsSL https://deb.nodesource.com/setup_23.x | bash - && \
     apt install -y nodejs && \
     npm install -g npm@latest
 

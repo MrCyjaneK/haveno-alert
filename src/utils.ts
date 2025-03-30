@@ -58,18 +58,18 @@ export function formatOfferInfo(offer: OfferInfo): string {
 Base currency: ${offer.getBaseCurrencyCode()}
 Counter currency: ${offer.getCounterCurrencyCode()}
 Payment method: ${offer.getPaymentMethodShortName()}
-Price: ${offer.getPrice()}
-Amount: ${offer.getAmount() ?? "any"}
-Min. Amount : ${offer.getMinAmount() ?? "any"}
-Volume: ${offer.getVolume() ?? "any"}
-Min volume: ${offer.getMinVolume() ?? "any"}`;
+Price: ${offer.getPrice()} ${offer.getCounterCurrencyCode()}
+Amount: ${offer.getAmount() ? (parseFloat(offer.getAmount()) / 1e12).toString() : "any"} <b>${offer.getBaseCurrencyCode()}</b>
+Min. Amount : ${offer.getMinAmount() ? (parseFloat(offer.getMinAmount()) / 1e12).toString() : "any"} <b>${offer.getBaseCurrencyCode()}</b>
+Volume: ${offer.getVolume() ?? "any"} <b>${offer.getCounterCurrencyCode()}</b>
+Min volume: ${offer.getMinVolume() ?? "any"} <b>${offer.getCounterCurrencyCode()}</b>`;
 }
 
 export function compareOffers(
   offer: OfferInfo,
   watchedOffer: WatchOffer,
 ): boolean {
-  if (offer.getPaymentMethodId() !== watchedOffer.paymentMethod) {
+  if (offer.getPaymentMethodId() !== watchedOffer.paymentMethod && watchedOffer.paymentMethod != "") {
     return false;
   }
 

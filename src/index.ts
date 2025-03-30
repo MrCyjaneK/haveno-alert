@@ -91,12 +91,17 @@ myCommands.command("unwatch", "unwatch {watchOfferId}", async (ctx) => {
 
 myCommands.command(
   "watch",
-  "watch {baseCurrency} {counterCurrency} {paymentMethod} {price?} {amount?} {minAmount?} {volume?} {minVolume?}",
+  "watch {baseCurrency} {counterCurrency} {paymentMethod?} {price?} {amount?} {minAmount?} {volume?} {minVolume?}",
   async (ctx) => {
     const arr = ctx.match.split(/\s+/);
+    if (arr.length == 1 && arr[0] == "") {
+      await ctx.reply("Invalid command. Use /watch {baseCurrency} {counterCurrency} {paymentMethod?} {price?} {amount?} {minAmount?} {volume?} {minVolume?}");
+      return;
+    }
+
     const groups = {
-      baseCurrency: arr[0],
-      counterCurrency: arr[1],
+      baseCurrency: arr[0].toUpperCase(),
+      counterCurrency: arr[1].toUpperCase(),
       paymentMethod: arr[2],
       price: arr[3],
       amount: arr[4],
@@ -125,35 +130,32 @@ myCommands.command(
       return;
     }
 
-    let paymentMethod = groups?.paymentMethod;
-    if (!paymentMethod) {
-      await ctx.reply("You have to specify Payment Method.");
-      return;
-    }
+    let paymentMethod = groups?.paymentMethod ?? "";
+    if (paymentMethod != "") {
+      const possibleValues = PAYMENT_METHODS.filter((sv) => {
+        const ucase = paymentMethod?.toUpperCase();
+        return ucase && sv.includes(ucase);
+      });
 
-    const possibleValues = PAYMENT_METHODS.filter((sv) => {
-      const ucase = paymentMethod?.toUpperCase();
-      return ucase && sv.includes(ucase);
-    });
+      if (possibleValues.length > 1) {
+        let message = "You have to specify Payment Method more specifically.\n";
 
-    if (possibleValues.length > 1) {
-      let message = "You have to specify Payment Method more specifically.\n";
+        if (possibleValues.length < 5) {
+          message += `Which of these did you mean:\n ${
+            possibleValues.map((value) => `\n - ${value}`)
+          }`;
+        }
 
-      if (possibleValues.length < 5) {
-        message += `Which of these did you mean:\n ${
-          possibleValues.map((value) => `\n - ${value}`)
-        }`;
+        await ctx.reply(message, { parse_mode: "HTML" });
+        return;
+      } else if (!possibleValues.length) {
+        await ctx.reply(
+          `No Payment Method has been found for: ${paymentMethod}`,
+        );
+        return;
+      } else {
+        paymentMethod = possibleValues[0];
       }
-
-      await ctx.reply(message, { parse_mode: "HTML" });
-      return;
-    } else if (!possibleValues.length) {
-      await ctx.reply(
-        `No Payment Method has been found for: ${paymentMethod}`,
-      );
-      return;
-    } else {
-      paymentMethod = possibleValues[0];
     }
 
     const price = await toNumberLossy(groups.price);
@@ -246,8 +248,6 @@ async function watchOffers() {
         if (compareOffers(offer, watchedOffer)) {
           const knownOffers = knownOfferInfos.get(watchedOffer.id);
 
-          console.log(watchedOffer.id, knownOffers);
-
           if (knownOffers?.has(offer.getId())) {
             continue;
           } else if (knownOffers) {
@@ -269,15 +269,11 @@ async function watchOffers() {
     }
 
     for (const [watchedOffer, offers] of foundOffers.entries()) {
-      let message =
-        `<a href='tg://user?id=${watchedOffer.userId}'>Hey</a>, I have found ${offers.length} offers matching your filters!`;
       for (const offer of offers) {
-        message += "\n" + formatOfferInfo(offer);
+        await bot.api.sendMessage(watchedOffer.channelId, formatOfferInfo(offer), {
+          parse_mode: "HTML",
+        });
       }
-
-      await bot.api.sendMessage(watchedOffer.channelId, message, {
-        parse_mode: "HTML",
-      });
     }
     foundOffers.clear();
 
